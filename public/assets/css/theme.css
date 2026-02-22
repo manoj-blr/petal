@@ -1,0 +1,94 @@
+/* theme.css — all CSS custom properties live here. No styles, only variables. */
+/* Default = dark. Light theme overrides every var in [data-theme="light"].    */
+
+:root {
+    --bg-base: #1e1e1e;
+    --bg-panel: #252526;
+    --bg-input: #2d2d2d;
+    --bg-hover: #2a2d2e;
+    --bg-active: #094771;
+
+    --border-color: #3e3e42;
+    --border-focus: #007acc;
+
+    --text-primary: #d4d4d4;
+    --text-secondary: #9d9d9d;
+    --text-muted: #6a6a6a;
+    --text-accent: #007acc;
+
+    --accent-primary: #007acc;
+    --accent-success: #4ec9b0;
+    --accent-warning: #dcdcaa;
+    --accent-danger: #f44747;
+
+    --status-2xx: #4ec9b0;
+    --status-3xx: #dcdcaa;
+    --status-4xx: #ce9178;
+    --status-5xx: #f44747;
+
+    --json-key: #9cdcfe;
+    --json-string: #ce9178;
+    --json-number: #b5cea8;
+    --json-boolean: #569cd6;
+    --json-null: #569cd6;
+
+    --font-ui: 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --transition: 150ms ease;
+
+    /* Method badge colors */
+    --method-get: #61affe;
+    --method-post: #49cc90;
+    --method-put: #fca130;
+    --method-patch: #dcdcaa;
+    --method-delete: #f93e3e;
+    --method-head: #9cdcfe;
+    --method-options: #0d5aa7;
+}
+
+/* ── Light theme ──────────────────────────────────────────────────────────── */
+
+[data-theme="light"] {
+    --bg-base:   #f0f0f0;
+    --bg-panel:  #ffffff;
+    --bg-input:  #f7f7f7;
+    --bg-hover:  #e8e8e8;
+    --bg-active: #dbeeff;
+
+    --border-color: #d0d0d0;
+    --border-focus: #007acc;
+
+    --text-primary:   #1e1e1e;
+    --text-secondary: #555555;
+    --text-muted:     #909090;
+    --text-accent:    #007acc;
+
+    --accent-primary: #007acc;
+    --accent-success: #1a9478;
+    --accent-warning: #8a6e00;
+    --accent-danger:  #c62828;
+
+    --status-2xx: #1a9478;
+    --status-3xx: #8a6e00;
+    --status-4xx: #b5623e;
+    --status-5xx: #c62828;
+
+    /* JSON syntax — VS Code Light+ palette */
+    --json-key:     #0451a5;
+    --json-string:  #a31515;
+    --json-number:  #098658;
+    --json-boolean: #0000ff;
+    --json-null:    #0000ff;
+
+    /* Method badge colors — same as dark, they're vivid enough on white */
+    --method-get:     #1a7fd4;
+    --method-post:    #2a9e63;
+    --method-put:     #d4810a;
+    --method-patch:   #8a7200;
+    --method-delete:  #d42020;
+    --method-head:    #3a8fbf;
+    --method-options: #0d5aa7;
+}
