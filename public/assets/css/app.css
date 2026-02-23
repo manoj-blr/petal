@@ -681,8 +681,51 @@ body.sidebar-hidden #sidebar {
 
 #workspace.layout-split #request-pane {
     flex: 0 0 50%;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    overflow-y: hidden;
     border-right: 1px solid var(--border-color);
+}
+
+/* Cascade flex-fill down to the body textarea in split mode only */
+#workspace.layout-split .request-tabs-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+#workspace.layout-split .request-tab-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* All active tab panes fill the space and scroll independently */
+#workspace.layout-split .request-tab-content .tab-pane.show {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* Body tab: flex column so the textarea — not the pane — handles overflow */
+#workspace.layout-split #tab-body.show {
+    display: flex;
+    flex-direction: column;
+    overflow-y: hidden;
+}
+
+#workspace.layout-split #tab-body .body-textarea-wrap {
+    flex: 1;
+    min-height: 0;
+}
+
+#workspace.layout-split #tab-body .body-textarea {
+    flex: 1;
+    min-height: 0;
+    resize: none;
 }
 
 #workspace.layout-split #response-pane {
