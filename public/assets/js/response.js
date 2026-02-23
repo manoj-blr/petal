@@ -79,6 +79,7 @@ function renderResponse(data) {
     // Hide placeholder, show panel (CSS animation defined in app.css)
     $('#resp-placeholder').addClass('d-none');
     $('#response-panel').removeClass('d-none');
+    $('#workspace').addClass('has-response');
 
     // Auto-switch to Preview for HTML responses, otherwise Body
     if (_isHtmlResp) {
@@ -460,6 +461,7 @@ function renderResponseInfo(data) {
 // ---------------------------------------------------------------------------
 
 function clearResponse() {
+    $('#workspace').removeClass('has-response');
     $('#resp-placeholder').removeClass('d-none');
     $('#response-panel').addClass('d-none');
     $('#response-status-badge').text('').attr('class', 'response-status-badge');

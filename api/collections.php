@@ -28,7 +28,7 @@ function getAllCollections(PDO $db): array
          FROM collections c
          LEFT JOIN saved_requests r ON r.collection_id = c.id
          GROUP BY c.id
-         ORDER BY c.name ASC'
+         ORDER BY c.sort_order ASC, c.id ASC'
     )->fetchAll();
 }
 

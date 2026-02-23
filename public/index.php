@@ -272,6 +272,9 @@
         </div><!-- /.request-tabs-wrap -->
         </div><!-- /#request-pane -->
 
+        <!-- Pane resize divider -->
+        <div id="pane-divider"></div>
+
         <!-- Response pane -->
         <div id="response-pane">
 
@@ -620,6 +623,7 @@
 <script src="assets/js/auth.js"></script>
 <script src="assets/js/response.js"></script>
 <script src="assets/js/curl.js"></script>
+<script src="assets/js/pane-resize.js"></script>
 
 </body>
 </html>

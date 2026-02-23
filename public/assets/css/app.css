@@ -488,8 +488,39 @@ body.sidebar-hidden #sidebar {
 .collection-item:hover .btn-ctx-menu { opacity: 1; color: var(--text-secondary); }
 .btn-ctx-menu:hover { color: var(--text-primary) !important; background: var(--bg-input); opacity: 1; }
 
+/* Drag handle — grip icon hinting that a row is draggable */
+.drag-handle {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    opacity: 0.25;
+    cursor: grab;
+    flex-shrink: 0;
+    transition: opacity var(--transition);
+    margin-right: 1px;
+}
+
+.saved-request-item:hover .drag-handle,
+.collection-item:hover .drag-handle { opacity: 0.65; }
+
 /* flex-1 utility used in sidebar JS-built rows */
 .flex-1 { flex: 1; min-width: 0; }
+
+/* ── Drag-and-drop indicators ─────────────────────────────────────────────── */
+
+.saved-request-item.dnd-dragging,
+.collection-section.dnd-dragging { opacity: 0.4; }
+
+/* Drop-line above item */
+.saved-request-item.dnd-above,
+.collection-section.dnd-above .collection-item {
+    box-shadow: inset 0 2px 0 0 var(--accent-primary);
+}
+
+/* Drop-line below item */
+.saved-request-item.dnd-below,
+.collection-section.dnd-below .collection-item {
+    box-shadow: inset 0 -2px 0 0 var(--accent-primary);
+}
 
 /* ── Context menu (request items) ─────────────────────────────────────────── */
 
@@ -681,11 +712,11 @@ body.sidebar-hidden #sidebar {
 }
 
 #workspace.layout-split #request-pane {
-    flex: 0 0 50%;
+    flex: 0 0 var(--split-ratio, 50%);
     display: flex;
     flex-direction: column;
     overflow-y: hidden;
-    border-right: 1px solid var(--border-color);
+    /* border provided by #pane-divider */
 }
 
 /* Cascade flex-fill down to the body textarea in split mode only */
@@ -746,6 +777,126 @@ body.sidebar-hidden #sidebar {
 #layout-toggle-btn.btn-active {
     color: var(--accent-primary);
     background: rgba(0,122,204,0.12);
+}
+
+/* ── Pane divider ─────────────────────────────────────────────────────────── */
+
+#pane-divider {
+    display: none;         /* hidden in stacked mode without response */
+    flex-shrink: 0;
+    background: var(--border-color);
+    position: relative;
+    transition: background var(--transition);
+    z-index: 1;
+}
+
+#pane-divider:hover,
+body.pane-dragging #pane-divider {
+    background: var(--accent-primary);
+}
+
+/* Wider invisible grab zone to make it easy to grab */
+#pane-divider::before {
+    content: '';
+    position: absolute;
+    z-index: 2;
+}
+
+/* Split layout — vertical bar between panes */
+#workspace.layout-split #pane-divider {
+    display: block;
+    width: 5px;
+    cursor: col-resize;
+}
+
+#workspace.layout-split #pane-divider::before {
+    top: 0; bottom: 0;
+    left: -4px; right: -4px;
+}
+
+/* Stacked layout with response — horizontal bar between panes */
+#workspace.has-response:not(.layout-split) #pane-divider {
+    display: block;
+    height: 5px;
+    cursor: row-resize;
+}
+
+#workspace.has-response:not(.layout-split) #pane-divider::before {
+    left: 0; right: 0;
+    top: -4px; bottom: -4px;
+}
+
+/* ── Stacked layout with response (fixed-height panes, resizable) ─────────── */
+
+/* Lock the workspace when a response is visible so panes can be resized */
+#workspace.has-response:not(.layout-split) {
+    overflow: hidden;
+}
+
+#workspace.has-response:not(.layout-split) #workspace-body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+#workspace.has-response:not(.layout-split) #request-pane {
+    flex: 0 0 var(--stacked-ratio, 40%);
+    display: flex;
+    flex-direction: column;
+    overflow-y: hidden;
+    border-bottom: none;  /* divider provides separation */
+}
+
+/* Tab content scrolls inside request pane in stacked+response mode */
+#workspace.has-response:not(.layout-split) .request-tabs-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+#workspace.has-response:not(.layout-split) .request-tab-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+#workspace.has-response:not(.layout-split) .request-tab-content .tab-pane.show {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+#workspace.has-response:not(.layout-split) #tab-body.show {
+    display: flex;
+    flex-direction: column;
+    overflow-y: hidden;
+}
+
+#workspace.has-response:not(.layout-split) #tab-body .body-textarea-wrap {
+    flex: 1;
+    min-height: 0;
+}
+
+#workspace.has-response:not(.layout-split) #tab-body .body-textarea {
+    flex: 1;
+    min-height: 0;
+    resize: none;
+}
+
+#workspace.has-response:not(.layout-split) #response-pane {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* In stacked+response mode, response body fills height */
+#workspace.has-response:not(.layout-split) .response-body {
+    max-height: none;
 }
 
 /* Request name bar */

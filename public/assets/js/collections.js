@@ -15,6 +15,10 @@ let _ctxReqId     = null; // request id whose context menu is open
 let _ctxCollId    = null; // collection id whose context menu is open
 let _importParsed = null; // last successfully parsed import JSON
 
+// DnD state
+let _dndReqId     = null; // request id being dragged
+let _dndCollId    = null; // collection id being dragged
+
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
@@ -125,15 +129,25 @@ function buildCollectionSection(coll, requests) {
             showColCtxMenu(coll.id, $(this));
         });
 
-    const $header = $('<div>').addClass('collection-item').append(
-        $('<i>').addClass('bi bi-chevron-right collection-chevron' + (isCollapsed ? '' : ' open')),
-        $('<i>').addClass('bi bi-folder2 collection-folder-icon'),
-        $('<span>').addClass('collection-name flex-1 text-truncate').text(coll.name),
-        requests.length > 0
-            ? $('<span>').addClass('collection-count').text(requests.length)
-            : null,
-        $menuBtn
-    ).on('click', function () { toggleCollection(coll.id); });
+    let _collDragged = false;
+    const $header = $('<div>').addClass('collection-item')
+        .attr({ draggable: 'true', 'data-collection-id': coll.id })
+        .append(
+            $('<i>').addClass('bi bi-grip-vertical drag-handle'),
+            $('<i>').addClass('bi bi-chevron-right collection-chevron' + (isCollapsed ? '' : ' open')),
+            $('<i>').addClass('bi bi-folder2 collection-folder-icon'),
+            $('<span>').addClass('collection-name flex-1 text-truncate').text(coll.name),
+            requests.length > 0
+                ? $('<span>').addClass('collection-count').text(requests.length)
+                : null,
+            $menuBtn
+        )
+        .on('click',     function ()  { if (!_collDragged) toggleCollection(coll.id); _collDragged = false; })
+        .on('dragstart', function (e) { _collDragged = true; onCollDragstart(e, coll.id); })
+        .on('dragend',   function ()  { onCollDragend(); setTimeout(function () { _collDragged = false; }, 100); })
+        .on('dragover',  function (e) { onCollDragover(e, coll.id); })
+        .on('drop',      function (e) { onCollDrop(e, coll.id); })
+        .on('dragleave', function (e) { onCollDragleave(e); });
 
     const $requests = $('<div>').addClass('collection-requests').toggle(!isCollapsed);
 
@@ -193,7 +207,7 @@ function buildUnsortedSection(requests) {
 function buildRequestItem(req) {
     const $item = $('<div>')
         .addClass('saved-request-item' + (req.id === _activeReqId ? ' active' : ''))
-        .attr('data-request-id', req.id);
+        .attr({ 'data-request-id': req.id, draggable: 'true' });
 
     const $menuBtn = $('<button>')
         .addClass('btn-ctx-menu')
@@ -205,12 +219,19 @@ function buildRequestItem(req) {
         });
 
     $item.append(
+        $('<i>').addClass('bi bi-grip-vertical drag-handle'),
         $('<span>').addClass('method-badge ' + req.method).text(req.method),
         $('<span>').addClass('item-name flex-1').text(req.name),
         $menuBtn
     );
 
-    $item.on('click', function () { loadRequestById(req.id); });
+    let _reqDragged = false;
+    $item.on('click',     function ()  { if (!_reqDragged) loadRequestById(req.id); _reqDragged = false; })
+         .on('dragstart', function (e) { _reqDragged = true; onReqDragstart(e, req.id); })
+         .on('dragend',   function ()  { onReqDragend(); setTimeout(function () { _reqDragged = false; }, 100); })
+         .on('dragover',  function (e) { onReqDragover(e, req.id); })
+         .on('drop',      function (e) { onReqDrop(e, req.id); })
+         .on('dragleave', function (e) { onReqDragleave(e); });
 
     return $item;
 }
@@ -644,6 +665,210 @@ function confirmImport() {
     }).fail(function () {
         $('#import-confirm-btn').html('<i class="bi bi-upload me-1"></i>Import').prop('disabled', false);
         showToast('Import failed — server error', 'error');
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Drag-and-drop — request items
+// ---------------------------------------------------------------------------
+
+function onReqDragstart(e, reqId) {
+    _dndReqId  = reqId;
+    _dndCollId = null;
+    e.originalEvent.dataTransfer.effectAllowed = 'move';
+    e.originalEvent.dataTransfer.setData('text/plain', 'req:' + reqId);
+    // Delay opacity so the ghost image renders normally
+    setTimeout(function () {
+        $('[data-request-id="' + reqId + '"]').addClass('dnd-dragging');
+    }, 0);
+}
+
+function onReqDragend() {
+    _dndReqId = null;
+    $('.saved-request-item').removeClass('dnd-dragging dnd-above dnd-below');
+    $('.collection-requests').removeClass('dnd-target-empty');
+}
+
+function onReqDragover(e, targetReqId) {
+    if (_dndReqId === null) return; // only handle request drags here
+    e.preventDefault();
+    e.originalEvent.dataTransfer.dropEffect = 'move';
+
+    // Determine above/below based on mouse Y within item
+    const $item = $('[data-request-id="' + targetReqId + '"]');
+    const rect  = $item[0].getBoundingClientRect();
+    const mid   = rect.top + rect.height / 2;
+
+    $('.saved-request-item').removeClass('dnd-above dnd-below');
+
+    if (_dndReqId === targetReqId) return;
+
+    if (e.originalEvent.clientY < mid) {
+        $item.addClass('dnd-above');
+    } else {
+        $item.addClass('dnd-below');
+    }
+}
+
+function onReqDragleave(e) {
+    const $item = $(e.currentTarget);
+    // Only clear if leaving the element entirely (not into a child)
+    if (!$item[0].contains(e.relatedTarget)) {
+        $item.removeClass('dnd-above dnd-below');
+    }
+}
+
+function onReqDrop(e, targetReqId) {
+    e.preventDefault();
+    const draggedId = _dndReqId; // capture before dragend clears it
+    if (!draggedId || draggedId === targetReqId) return;
+
+    const $target     = $('[data-request-id="' + targetReqId + '"]');
+    const insertAbove = $target.hasClass('dnd-above');
+    $target.removeClass('dnd-above dnd-below');
+
+    // Find target's collection from the DOM
+    const $collSection = $target.closest('.collection-section');
+    const newCollId    = parseInt($collSection.attr('data-collection-id'), 10) || null;
+
+    const sourceReq = _requests.find(function (r) { return r.id === draggedId; });
+    if (!sourceReq) return;
+
+    const collChanged = sourceReq.collection_id !== newCollId;
+
+    // Build the ordered id list for the destination collection, current DOM order
+    const $container = $collSection.find('.collection-requests');
+
+    let ids = [];
+    $container.find('.saved-request-item').each(function () {
+        const id = parseInt($(this).attr('data-request-id'), 10);
+        if (id !== draggedId) ids.push(id);
+    });
+
+    // Insert dragged item before or after target
+    const targetIdx = ids.indexOf(targetReqId);
+    const insertAt  = insertAbove ? targetIdx : targetIdx + 1;
+    ids.splice(insertAt, 0, draggedId);
+
+    // If collection changed, move via PUT first then reorder
+    if (collChanged) {
+        $.ajax({
+            url:         API_BASE + '/requests.php?id=' + draggedId,
+            method:      'PUT',
+            contentType: 'application/json',
+            data:        JSON.stringify({ collection_id: newCollId }),
+        }).done(function (res) {
+            if (!res.success) { showToast('Move failed', 'error'); return; }
+            persistReqOrder(ids);
+        }).fail(function () { showToast('Move failed', 'error'); });
+    } else {
+        persistReqOrder(ids);
+    }
+}
+
+function persistReqOrder(ids) {
+    $.ajax({
+        url:         API_BASE + '/reorder.php',
+        method:      'POST',
+        contentType: 'application/json',
+        data:        JSON.stringify({ type: 'requests', ids: ids }),
+    }).done(function (res) {
+        if (res.success) {
+            loadCollections();
+        } else {
+            showToast('Reorder failed', 'error');
+            loadCollections();
+        }
+    }).fail(function () {
+        showToast('Reorder failed', 'error');
+        loadCollections();
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Drag-and-drop — collection headers
+// ---------------------------------------------------------------------------
+
+function onCollDragstart(e, collId) {
+    _dndCollId = collId;
+    _dndReqId  = null;
+    e.originalEvent.dataTransfer.effectAllowed = 'move';
+    e.originalEvent.dataTransfer.setData('text/plain', 'coll:' + collId);
+    setTimeout(function () {
+        $('.collection-item[data-collection-id="' + collId + '"]').closest('.collection-section').addClass('dnd-dragging');
+    }, 0);
+}
+
+function onCollDragend() {
+    _dndCollId = null;
+    $('.collection-section').removeClass('dnd-dragging dnd-above dnd-below');
+}
+
+function onCollDragover(e, targetCollId) {
+    if (_dndCollId === null) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.originalEvent.dataTransfer.dropEffect = 'move';
+
+    if (_dndCollId === targetCollId) return;
+
+    const $header = $('.collection-item[data-collection-id="' + targetCollId + '"]');
+    const rect    = $header[0].getBoundingClientRect();
+    const mid     = rect.top + rect.height / 2;
+
+    $('.collection-section').removeClass('dnd-above dnd-below');
+    const $section = $header.closest('.collection-section');
+
+    if (e.originalEvent.clientY < mid) {
+        $section.addClass('dnd-above');
+    } else {
+        $section.addClass('dnd-below');
+    }
+}
+
+function onCollDragleave(e) {
+    const $header = $(e.currentTarget);
+    if (!$header[0].contains(e.relatedTarget)) {
+        $header.closest('.collection-section').removeClass('dnd-above dnd-below');
+    }
+}
+
+function onCollDrop(e, targetCollId) {
+    e.preventDefault();
+    e.stopPropagation();
+    const draggedId = _dndCollId; // capture before dragend clears it
+    if (!draggedId || draggedId === targetCollId) return;
+
+    const $targetHeader  = $('.collection-item[data-collection-id="' + targetCollId + '"]');
+    const insertAbove    = $targetHeader.closest('.collection-section').hasClass('dnd-above');
+    $('.collection-section').removeClass('dnd-above dnd-below');
+
+    // Build ordered id list from DOM order, excluding dragged collection
+    let ids = [];
+    $('#collections-list .collection-section[data-collection-id]').each(function () {
+        const id = parseInt($(this).attr('data-collection-id'), 10);
+        if (id !== draggedId) ids.push(id);
+    });
+
+    const targetIdx = ids.indexOf(targetCollId);
+    const insertAt  = insertAbove ? targetIdx : targetIdx + 1;
+    ids.splice(insertAt, 0, draggedId);
+
+    $.ajax({
+        url:         API_BASE + '/reorder.php',
+        method:      'POST',
+        contentType: 'application/json',
+        data:        JSON.stringify({ type: 'collections', ids: ids }),
+    }).done(function (res) {
+        if (res.success) {
+            loadCollections();
+        } else {
+            showToast('Reorder failed', 'error');
+            loadCollections();
+        }
+    }).fail(function () {
+        showToast('Reorder failed', 'error');
+        loadCollections();
     });
 }
 
