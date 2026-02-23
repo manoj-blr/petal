@@ -60,13 +60,13 @@ function handleGet(PDO $db, ?int $id): void
         $collectionId = (int) $_GET['collection_id'];
         $stmt = $db->prepare(
             'SELECT id, collection_id, name, method, url, headers, body, body_type, params, auth, notes, verify_ssl, timeout_sec, created_at, updated_at
-             FROM saved_requests WHERE collection_id = :collection_id ORDER BY name ASC'
+             FROM saved_requests WHERE collection_id = :collection_id ORDER BY sort_order ASC, id ASC'
         );
         $stmt->execute([':collection_id' => $collectionId]);
     } else {
         $stmt = $db->query(
             'SELECT id, collection_id, name, method, url, headers, body, body_type, params, auth, notes, verify_ssl, timeout_sec, created_at, updated_at
-             FROM saved_requests ORDER BY name ASC'
+             FROM saved_requests ORDER BY sort_order ASC, id ASC'
         );
     }
 

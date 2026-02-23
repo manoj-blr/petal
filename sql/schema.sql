@@ -7,7 +7,8 @@ USE petal;
 -- Stores named groups of requests (like Postman collections)
 CREATE TABLE collections (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
+    name       VARCHAR(255) NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -16,6 +17,7 @@ CREATE TABLE collections (
 CREATE TABLE saved_requests (
     id INT AUTO_INCREMENT PRIMARY KEY,
     collection_id INT NULL,
+    sort_order    INT NOT NULL DEFAULT 0,
     name VARCHAR(255) NOT NULL,
     method ENUM('GET','POST','PUT','PATCH','DELETE','HEAD','OPTIONS') DEFAULT 'GET',
     url TEXT NOT NULL,
