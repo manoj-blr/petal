@@ -4,12 +4,27 @@
 // State
 // ---------------------------------------------------------------------------
 
-let _environments = [];   // full list cached from last API response
-let _activeEnvId  = null; // id of the currently active environment
+let _environments    = [];   // full list cached from last API response
+let _activeEnvId     = null; // id of the currently active environment
+let _activeVarCache  = [];   // variables for the active env — kept fresh for {{}} autocomplete
 
 /** Called by request.js when building the send payload. */
 function getActiveEnvironmentId() {
     return _activeEnvId;
+}
+
+/** Called by var-autocomplete.js to get the list of available variable names/values. */
+function getActiveEnvVars() {
+    return _activeVarCache;
+}
+
+/** Fetches variables for the active environment and stores them in _activeVarCache. */
+function refreshActiveVarCache() {
+    if (!_activeEnvId) { _activeVarCache = []; return; }
+    apiVars({ method: 'GET', url: API_BASE + '/variables.php?environment_id=' + _activeEnvId })
+        .done(function (res) {
+            if (res.success) _activeVarCache = res.data;
+        });
 }
 
 // ---------------------------------------------------------------------------
@@ -59,6 +74,7 @@ function loadEnvironments() {
             _environments = res.data;
             _activeEnvId  = (_environments.find(e => e.is_active == 1) || {}).id || null;
             renderTopbarDropdown();
+            refreshActiveVarCache();
         })
         .fail(function () { showToast('Could not reach environments API', 'error'); });
 }
@@ -118,6 +134,7 @@ function setActiveEnvironment(id) {
             _environments = res.data;
             _activeEnvId  = id;
             renderTopbarDropdown();
+            refreshActiveVarCache();
             const name = (_environments.find(e => e.id == id) || {}).name || '';
             showToast('Switched to ' + name, 'success');
         })
@@ -319,6 +336,9 @@ function loadVariablesIntoCard(envId, $card) {
 }
 
 function renderVarsTable(envId, variables, $panel) {
+    // Keep autocomplete cache in sync whenever the active env's vars are (re)rendered
+    if (envId == _activeEnvId) _activeVarCache = variables;
+
     $panel.empty();
 
     const $table = $('<table>').addClass('kv-table');

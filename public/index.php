@@ -91,9 +91,14 @@
         <div class="sidebar-section">
             <div class="sidebar-section-header">
                 <span class="sidebar-section-label">Collections</span>
-                <button class="btn-icon btn-icon-sm" id="add-collection-btn" title="New collection">
-                    <i class="bi bi-folder-plus"></i>
-                </button>
+                <div class="d-flex gap-1">
+                    <button class="btn-icon btn-icon-sm" id="import-collection-btn" title="Import collection from JSON">
+                        <i class="bi bi-upload"></i>
+                    </button>
+                    <button class="btn-icon btn-icon-sm" id="add-collection-btn" title="New collection">
+                        <i class="bi bi-folder-plus"></i>
+                    </button>
+                </div>
             </div>
             <div id="collections-list">
                 <!-- Skeleton shown while loading, replaced by collections.js -->
@@ -508,6 +513,68 @@
 
 
 <!-- ═══════════════════════════════════════════════════════════════
+     COLLECTION CONTEXT MENU
+════════════════════════════════════════════════════════════════ -->
+<div id="col-ctx-menu" class="ctx-menu d-none" role="menu">
+    <button class="ctx-item" id="col-ctx-export-petal">
+        <i class="bi bi-filetype-json"></i> Export as Petal JSON
+    </button>
+    <button class="ctx-item" id="col-ctx-export-postman">
+        <i class="bi bi-box-arrow-up"></i> Export as Postman v2.1
+    </button>
+    <div class="ctx-divider"></div>
+    <button class="ctx-item ctx-item-danger" id="col-ctx-delete">
+        <i class="bi bi-trash"></i> Delete collection
+    </button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     IMPORT COLLECTION MODAL
+════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="import-modal" tabindex="-1" aria-labelledby="import-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content petal-modal">
+            <div class="modal-header">
+                <h5 class="modal-title" id="import-modal-title">
+                    <i class="bi bi-upload me-2"></i>Import Collection
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+
+                <!-- File drop zone -->
+                <div class="import-drop-zone" id="import-drop-zone">
+                    <i class="bi bi-file-earmark-arrow-up import-drop-icon"></i>
+                    <p class="mb-1">Drop a <code>.json</code> file here</p>
+                    <label for="import-file-input" class="import-file-label">or choose file</label>
+                    <input type="file" id="import-file-input" accept=".json" class="d-none">
+                </div>
+
+                <div class="import-or-divider">— or paste JSON —</div>
+
+                <textarea
+                    id="import-paste-area"
+                    class="import-paste-area petal-input"
+                    rows="7"
+                    placeholder="Paste a Petal export or a Postman v2.1 collection here…"
+                    spellcheck="false"
+                ></textarea>
+
+                <!-- Detection preview (hidden until valid JSON is parsed) -->
+                <div id="import-preview" class="import-preview d-none"></div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" id="import-confirm-btn" disabled>
+                    <i class="bi bi-upload me-1"></i>Import
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
      CONTEXT MENU  (request items in sidebar)
 ════════════════════════════════════════════════════════════════ -->
 <div id="ctx-menu" class="ctx-menu d-none" role="menu">
@@ -545,6 +612,7 @@
 <script src="assets/js/palette.js"></script>
 <script src="assets/js/history.js"></script>
 <script src="assets/js/autocomplete.js"></script>
+<script src="assets/js/var-autocomplete.js"></script>
 <script src="assets/js/request.js"></script>
 <script src="assets/js/save.js"></script>
 <script src="assets/js/headers.js"></script>

@@ -12,6 +12,8 @@ let _requests     = [];   // [{id, collection_id, name, method, url, ...}]
 let _activeReqId  = null; // id of the request currently open in workspace
 let _collapsed    = {};   // {collectionId: true} for user-collapsed sections
 let _ctxReqId     = null; // request id whose context menu is open
+let _ctxCollId    = null; // collection id whose context menu is open
+let _importParsed = null; // last successfully parsed import JSON
 
 // ---------------------------------------------------------------------------
 // Init
@@ -26,14 +28,32 @@ $(function () {
         promptNewCollection();
     });
 
-    // Close context menu on outside click or Esc
+    // Import Collection button (sidebar header)
+    $('#import-collection-btn').on('click', openImportModal);
+
+    // Close request context menu on outside click or Esc
     $(document).on('click.ctxmenu', function (e) {
         if (!$(e.target).closest('#ctx-menu').length) hideCtxMenu();
+        if (!$(e.target).closest('#col-ctx-menu').length) hideColCtxMenu();
     });
-    $(document).on('petal:escape', hideCtxMenu);
+    $(document).on('petal:escape', function () { hideCtxMenu(); hideColCtxMenu(); });
 
-    // After save (TASK 6.2) refresh the sidebar
+    // After save refresh the sidebar
     $(document).on('petal:request-saved', loadCollections);
+
+    // Collection context menu button wiring (read _ctxCollId at click time)
+    $('#col-ctx-export-petal').on('click', function () {
+        const id = _ctxCollId; hideColCtxMenu(); exportCollection(id, 'petal');
+    });
+    $('#col-ctx-export-postman').on('click', function () {
+        const id = _ctxCollId; hideColCtxMenu(); exportCollection(id, 'postman');
+    });
+    $('#col-ctx-delete').on('click', function () {
+        const id = _ctxCollId; hideColCtxMenu(); deleteCollection(id);
+    });
+
+    // Import modal wiring
+    initImportModal();
 });
 
 // ---------------------------------------------------------------------------
@@ -96,13 +116,23 @@ function buildCollectionSection(coll, requests) {
     const $section = $('<div>').addClass('collection-section')
                                .attr('data-collection-id', coll.id);
 
+    const $menuBtn = $('<button>')
+        .addClass('btn-ctx-menu')
+        .attr('title', 'Collection options')
+        .html('<i class="bi bi-three-dots"></i>')
+        .on('click', function (e) {
+            e.stopPropagation();
+            showColCtxMenu(coll.id, $(this));
+        });
+
     const $header = $('<div>').addClass('collection-item').append(
         $('<i>').addClass('bi bi-chevron-right collection-chevron' + (isCollapsed ? '' : ' open')),
         $('<i>').addClass('bi bi-folder2 collection-folder-icon'),
         $('<span>').addClass('collection-name flex-1 text-truncate').text(coll.name),
         requests.length > 0
             ? $('<span>').addClass('collection-count').text(requests.length)
-            : null
+            : null,
+        $menuBtn
     ).on('click', function () { toggleCollection(coll.id); });
 
     const $requests = $('<div>').addClass('collection-requests').toggle(!isCollapsed);
@@ -392,6 +422,229 @@ function promptNewCollection() {
             showToast(res.error || 'Failed to create collection', 'error');
         }
     }).fail(function () { showToast('Failed to create collection', 'error'); });
+}
+
+// ---------------------------------------------------------------------------
+// Collection context menu
+// ---------------------------------------------------------------------------
+
+function showColCtxMenu(collId, $anchor) {
+    _ctxCollId = collId;
+
+    const $menu = $('#col-ctx-menu');
+    const rect  = $anchor[0].getBoundingClientRect();
+    const menuH = 120;
+    const menuW = 200;
+    const winH  = window.innerHeight;
+    const winW  = window.innerWidth;
+
+    const top  = (rect.bottom + menuH > winH) ? rect.top - menuH : rect.bottom + 2;
+    const left = Math.max(4, Math.min(rect.left, winW - menuW - 4));
+
+    $menu.css({ top: top + 'px', left: left + 'px' }).removeClass('d-none').addClass('ctx-pop');
+}
+
+function hideColCtxMenu() {
+    $('#col-ctx-menu').addClass('d-none').removeClass('ctx-pop');
+    _ctxCollId = null;
+}
+
+// ---------------------------------------------------------------------------
+// Export collection
+// ---------------------------------------------------------------------------
+
+function exportCollection(collId, format) {
+    // Trigger a browser file download by navigating to the export endpoint.
+    // Content-Disposition: attachment on the PHP side forces the download.
+    const url = API_BASE + '/export.php?collection_id=' + collId + '&format=' + format;
+    const $a  = $('<a>').attr({ href: url, download: '' }).appendTo('body');
+    $a[0].click();
+    $a.remove();
+    showToast('Download started', 'success');
+}
+
+// ---------------------------------------------------------------------------
+// Delete collection
+// ---------------------------------------------------------------------------
+
+function deleteCollection(id) {
+    const coll = _collections.find(function (c) { return c.id === id; });
+    if (!coll) return;
+
+    const reqCount = _requests.filter(function (r) { return r.collection_id === id; }).length;
+    const note     = reqCount > 0
+        ? ' ' + reqCount + ' request' + (reqCount !== 1 ? 's' : '') + ' will become unsorted.'
+        : '';
+
+    if (!confirm('Delete collection "' + coll.name + '"?' + note)) return;
+
+    $.ajax({ url: API_BASE + '/collections.php?id=' + id, method: 'DELETE' })
+        .done(function (res) {
+            if (res.success) {
+                showToast('Collection deleted', 'success');
+                loadCollections();
+            } else {
+                showToast(res.error || 'Delete failed', 'error');
+            }
+        })
+        .fail(function () { showToast('Delete failed', 'error'); });
+}
+
+// ---------------------------------------------------------------------------
+// Import modal
+// ---------------------------------------------------------------------------
+
+function openImportModal() {
+    _importParsed = null;
+    $('#import-paste-area').val('');
+    $('#import-preview').addClass('d-none').empty();
+    $('#import-confirm-btn').prop('disabled', true);
+    bootstrap.Modal.getOrCreateInstance('#import-modal').show();
+}
+
+function initImportModal() {
+    // File picker
+    $('#import-file-input').on('change', function () {
+        const file = this.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (e) { handleImportText(e.target.result); };
+        reader.readAsText(file);
+    });
+
+    // Drag and drop onto the drop zone
+    const dz = document.getElementById('import-drop-zone');
+    if (dz) {
+        dz.addEventListener('dragover',  function (e) { e.preventDefault(); dz.classList.add('dragover'); });
+        dz.addEventListener('dragleave', function ()  { dz.classList.remove('dragover'); });
+        dz.addEventListener('drop', function (e) {
+            e.preventDefault();
+            dz.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (ev) { handleImportText(ev.target.result); };
+            reader.readAsText(file);
+        });
+        // Click on drop zone opens file picker
+        dz.addEventListener('click', function (e) {
+            if (!$(e.target).is('label, input')) $('#import-file-input').trigger('click');
+        });
+    }
+
+    // Paste textarea — debounced detection
+    let _pasteTimer = null;
+    $('#import-paste-area').on('input', function () {
+        clearTimeout(_pasteTimer);
+        const text = $(this).val().trim();
+        if (!text) {
+            _importParsed = null;
+            $('#import-preview').addClass('d-none').empty();
+            $('#import-confirm-btn').prop('disabled', true);
+            return;
+        }
+        _pasteTimer = setTimeout(function () { handleImportText(text); }, 300);
+    });
+
+    // Confirm button
+    $('#import-confirm-btn').on('click', confirmImport);
+
+    // Reset state when modal closes
+    document.getElementById('import-modal').addEventListener('hidden.bs.modal', function () {
+        _importParsed = null;
+    });
+}
+
+function handleImportText(text) {
+    const $preview = $('#import-preview');
+    const $btn     = $('#import-confirm-btn');
+
+    let parsed;
+    try {
+        parsed = JSON.parse(text);
+    } catch (e) {
+        _importParsed = null;
+        $btn.prop('disabled', true);
+        $preview.removeClass('d-none').html(
+            '<span class="import-preview-error"><i class="bi bi-x-circle me-1"></i>Invalid JSON — check for syntax errors.</span>'
+        );
+        return;
+    }
+
+    // Detect format
+    let format = null, collName = '', reqCount = 0;
+
+    if (parsed.petal_version) {
+        format    = 'Petal v' + parsed.petal_version;
+        collName  = (parsed.collection || {}).name || 'Unknown';
+        reqCount  = (parsed.requests || []).length;
+    } else if (parsed.info && parsed.info.schema && parsed.info.schema.includes('getpostman.com')) {
+        format    = 'Postman v2.1';
+        collName  = parsed.info.name || 'Unknown';
+        reqCount  = countPostmanItems(parsed.item || []);
+    } else {
+        _importParsed = null;
+        $btn.prop('disabled', true);
+        $preview.removeClass('d-none').html(
+            '<span class="import-preview-error"><i class="bi bi-x-circle me-1"></i>' +
+            'Unrecognised format. Expected a Petal export or a Postman v2.1 collection.</span>'
+        );
+        return;
+    }
+
+    _importParsed = parsed;
+    $btn.prop('disabled', false);
+    $preview.removeClass('d-none').html(
+        '<span class="import-preview-ok">' +
+        '<i class="bi bi-check-circle me-1"></i>' +
+        '<strong>' + $('<span>').text(format).html() + '</strong> — ' +
+        '<strong>' + $('<span>').text(reqCount).html() + '</strong> request' + (reqCount !== 1 ? 's' : '') + ' in ' +
+        '<em>' + $('<span>').text(collName).html() + '</em>' +
+        '</span>'
+    );
+}
+
+function countPostmanItems(items) {
+    let n = 0;
+    items.forEach(function (item) {
+        if (item.item && Array.isArray(item.item)) {
+            n += countPostmanItems(item.item); // folder
+        } else if (item.request) {
+            n++;
+        }
+    });
+    return n;
+}
+
+function confirmImport() {
+    if (!_importParsed) return;
+
+    $('#import-confirm-btn').prop('disabled', true).html('<i class="bi bi-arrow-repeat spin me-1"></i>Importing…');
+
+    $.ajax({
+        url:         API_BASE + '/import.php',
+        method:      'POST',
+        contentType: 'application/json',
+        data:        JSON.stringify({ data: _importParsed }),
+    }).done(function (res) {
+        $('#import-confirm-btn').html('<i class="bi bi-upload me-1"></i>Import');
+        if (!res.success) {
+            showToast(res.error || 'Import failed', 'error');
+            $('#import-confirm-btn').prop('disabled', false);
+            return;
+        }
+        bootstrap.Modal.getOrCreateInstance('#import-modal').hide();
+        loadCollections();
+        showToast(
+            'Imported "' + res.data.collection_name + '" — ' + res.data.request_count + ' request' +
+            (res.data.request_count !== 1 ? 's' : ''),
+            'success'
+        );
+        _importParsed = null;
+    }).fail(function () {
+        $('#import-confirm-btn').html('<i class="bi bi-upload me-1"></i>Import').prop('disabled', false);
+        showToast('Import failed — server error', 'error');
+    });
 }
 
 // ---------------------------------------------------------------------------
