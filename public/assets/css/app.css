@@ -1340,6 +1340,54 @@ body.sidebar-hidden #sidebar {
     margin-left: auto;
 }
 
+/* ── Variable secret masking ─────────────────────────────────────────────── */
+
+/* Flex wrapper so the eye button sits snug after the value input */
+.var-val-wrap {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.var-val-wrap .kv-input { flex: 1; min-width: 0; }
+
+/* Eye (show/hide) button — only visible on secret rows */
+.btn-var-eye {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    padding: 2px 3px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.8rem;
+    line-height: 1;
+    border-radius: var(--radius-sm);
+    transition: color var(--transition);
+}
+.btn-var-eye:hover { color: var(--text-primary); }
+
+/* Flex wrapper for the lock + delete buttons in the actions column */
+.var-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+/* Lock (mark/unmark secret) button */
+.btn-var-secret {
+    background: none;
+    border: none;
+    padding: 2px 3px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.8rem;
+    line-height: 1;
+    border-radius: var(--radius-sm);
+    transition: color var(--transition);
+}
+.btn-var-secret:hover { color: var(--text-primary); }
+.btn-var-secret.is-secret { color: var(--accent-warning); }
+
 /* ── SSL verification toggle ─────────────────────────────────────────────── */
 
 /* Default (verified): inherits .btn-icon muted colour */

@@ -20,7 +20,7 @@ function jsonResponse(bool $success, mixed $data = null, ?string $error = null, 
 function getVariablesForEnvironment(PDO $db, int $environmentId): array
 {
     $stmt = $db->prepare(
-        'SELECT id, environment_id, var_key, var_value, created_at, updated_at
+        'SELECT id, environment_id, var_key, var_value, is_secret, created_at, updated_at
          FROM environment_variables
          WHERE environment_id = :environment_id
          ORDER BY id ASC'
@@ -65,6 +65,7 @@ function handlePost(PDO $db): void
     $environmentId = isset($input['environment_id']) ? (int) $input['environment_id'] : null;
     $varKey        = trim($input['var_key'] ?? '');
     $varValue      = $input['var_value'] ?? null;
+    $isSecret      = isset($input['is_secret']) ? (int) (bool) $input['is_secret'] : 0;
 
     if ($environmentId === null) {
         jsonResponse(false, null, '"environment_id" is required.', 400);
@@ -105,12 +106,13 @@ function handlePost(PDO $db): void
     }
 
     $stmt = $db->prepare(
-        'INSERT INTO environment_variables (environment_id, var_key, var_value) VALUES (:environment_id, :var_key, :var_value)'
+        'INSERT INTO environment_variables (environment_id, var_key, var_value, is_secret) VALUES (:environment_id, :var_key, :var_value, :is_secret)'
     );
     $stmt->execute([
         ':environment_id' => $environmentId,
         ':var_key'        => $varKey,
         ':var_value'      => $varValue,
+        ':is_secret'      => $isSecret,
     ]);
 
     jsonResponse(true, getVariablesForEnvironment($db, $environmentId));
@@ -125,11 +127,12 @@ function handlePut(PDO $db, ?int $id): void
 
     $input = json_decode(file_get_contents('php://input'), true) ?? [];
 
-    $hasKey   = array_key_exists('var_key', $input);
-    $hasValue = array_key_exists('var_value', $input);
+    $hasKey    = array_key_exists('var_key', $input);
+    $hasValue  = array_key_exists('var_value', $input);
+    $hasSecret = array_key_exists('is_secret', $input);
 
-    if (!$hasKey && !$hasValue) {
-        jsonResponse(false, null, 'Nothing to update — provide "var_key" and/or "var_value".', 400);
+    if (!$hasKey && !$hasValue && !$hasSecret) {
+        jsonResponse(false, null, 'Nothing to update — provide "var_key", "var_value", and/or "is_secret".', 400);
         return;
     }
 
@@ -180,6 +183,11 @@ function handlePut(PDO $db, ?int $id): void
     if ($hasValue) {
         $stmt = $db->prepare('UPDATE environment_variables SET var_value = :var_value WHERE id = :id');
         $stmt->execute([':var_value' => $input['var_value'], ':id' => $id]);
+    }
+
+    if ($hasSecret) {
+        $stmt = $db->prepare('UPDATE environment_variables SET is_secret = :is_secret WHERE id = :id');
+        $stmt->execute([':is_secret' => (int) (bool) $input['is_secret'], ':id' => $id]);
     }
 
     jsonResponse(true, getVariablesForEnvironment($db, $existing['environment_id']));

@@ -47,6 +47,7 @@ CREATE TABLE environment_variables (
     environment_id INT NOT NULL,
     var_key VARCHAR(255) NOT NULL,
     var_value TEXT NOT NULL,
+    is_secret TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE

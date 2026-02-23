@@ -54,15 +54,15 @@ function handlePost(PDO $db): void
         // If duplicating, copy every variable from the source environment
         if ($sourceId !== null) {
             $rows = $db->prepare(
-                'SELECT var_key, var_value FROM environment_variables WHERE environment_id = :src ORDER BY id ASC'
+                'SELECT var_key, var_value, is_secret FROM environment_variables WHERE environment_id = :src ORDER BY id ASC'
             );
             $rows->execute([':src' => $sourceId]);
 
             $ins = $db->prepare(
-                'INSERT INTO environment_variables (environment_id, var_key, var_value) VALUES (:env, :key, :val)'
+                'INSERT INTO environment_variables (environment_id, var_key, var_value, is_secret) VALUES (:env, :key, :val, :secret)'
             );
             foreach ($rows->fetchAll() as $row) {
-                $ins->execute([':env' => $newId, ':key' => $row['var_key'], ':val' => $row['var_value']]);
+                $ins->execute([':env' => $newId, ':key' => $row['var_key'], ':val' => $row['var_value'], ':secret' => $row['is_secret']]);
             }
         }
 

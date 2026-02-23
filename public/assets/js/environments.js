@@ -326,7 +326,7 @@ function renderVarsTable(envId, variables, $panel) {
         $('<tr>').append(
             $('<th>').text('Key').css('width', '40%'),
             $('<th>').text('Value'),
-            $('<th>').css('width', '36px')
+            $('<th>').css('width', '60px')
         )
     );
     const $tbody = $('<tbody>').attr('id', 'vars-tbody-' + envId);
@@ -359,6 +359,8 @@ function renderVarsTable(envId, variables, $panel) {
 // Existing variable row
 function buildVarRow(v, envId) {
     const $row = $('<tr>').attr('data-var-id', v.id);
+    let isSecret = v.is_secret == 1;
+    let revealed  = false;
 
     const $keyInput = $('<input>').addClass('kv-input').attr({
         type: 'text', value: v.var_key, 'data-field': 'key', 'data-original': v.var_key,
@@ -366,7 +368,8 @@ function buildVarRow(v, envId) {
     });
 
     const $valInput = $('<input>').addClass('kv-input').attr({
-        type: 'text', value: v.var_value, 'data-field': 'value', 'data-original': v.var_value,
+        type: isSecret ? 'password' : 'text',
+        value: v.var_value, 'data-field': 'value', 'data-original': v.var_value,
         placeholder: 'value', spellcheck: false
     });
 
@@ -386,17 +389,62 @@ function buildVarRow(v, envId) {
         updateVariable(v.id, { var_value: newVal }, $(this), $(this).data('original'));
     }).on('keydown', function (e) { if (e.key === 'Enter') $(this).blur(); });
 
+    // Eye button — toggle visibility of a secret value
+    const $eyeBtn = $('<button>')
+        .addClass('btn-var-eye')
+        .attr('title', 'Show / hide value')
+        .html('<i class="bi bi-eye"></i>')
+        .toggle(isSecret)
+        .on('click', function () {
+            revealed = !revealed;
+            $valInput.attr('type', revealed ? 'text' : 'password');
+            $(this).find('i')
+                .toggleClass('bi-eye', !revealed)
+                .toggleClass('bi-eye-slash', revealed);
+        });
+
+    // Lock button — mark / unmark as secret
+    const $lockBtn = $('<button>')
+        .addClass('btn-var-secret' + (isSecret ? ' is-secret' : ''))
+        .attr('title', isSecret ? 'Unmark as secret' : 'Mark as secret')
+        .html('<i class="bi bi-' + (isSecret ? 'lock-fill' : 'lock') + '"></i>')
+        .on('click', function () {
+            const newSecret = !isSecret;
+            apiVars({
+                method: 'PUT',
+                url: API_BASE + '/variables.php?id=' + v.id,
+                contentType: 'application/json',
+                data: JSON.stringify({ is_secret: newSecret ? 1 : 0 })
+            }).done(function (res) {
+                if (!res.success) { showToast(res.error || 'Could not update variable', 'error'); return; }
+                isSecret = newSecret;
+                revealed = false;
+                $valInput.attr('type', isSecret ? 'password' : 'text');
+                $eyeBtn.toggle(isSecret);
+                $lockBtn
+                    .toggleClass('is-secret', isSecret)
+                    .attr('title', isSecret ? 'Unmark as secret' : 'Mark as secret')
+                    .find('i')
+                    .toggleClass('bi-lock-fill', isSecret)
+                    .toggleClass('bi-lock', !isSecret);
+            }).fail(function () { showToast('Failed to update variable', 'error'); });
+        });
+
     const $delBtn = $('<button>').addClass('btn-kv-delete')
         .html('<i class="bi bi-x"></i>')
         .on('click', function () { deleteVariable(v.id, $row, envId); });
 
-    $row.append($('<td>').append($keyInput), $('<td>').append($valInput), $('<td>').append($delBtn));
+    const $valWrap  = $('<div>').addClass('var-val-wrap').append($valInput, $eyeBtn);
+    const $actions  = $('<div>').addClass('var-actions').append($lockBtn, $delBtn);
+    $row.append($('<td>').append($keyInput), $('<td>').append($valWrap), $('<td>').append($actions));
     return $row;
 }
 
 // New (unsaved) variable row — saved via POST on key blur
 function buildNewVarRow(envId, $tbody) {
     const $row = $('<tr>').addClass('var-row-new');
+    let _isSecret = false;
+    let _revealed  = false;
 
     const $keyInput = $('<input>').addClass('kv-input').attr({
         type: 'text', value: '', 'data-field': 'key',
@@ -418,7 +466,7 @@ function buildNewVarRow(envId, $tbody) {
         $row.removeClass('var-row-new');
 
         apiVars({ method: 'POST', contentType: 'application/json',
-                  data: JSON.stringify({ environment_id: envId, var_key: key, var_value: val }) })
+                  data: JSON.stringify({ environment_id: envId, var_key: key, var_value: val, is_secret: _isSecret ? 1 : 0 }) })
             .done(function (res) {
                 if (!res.success) {
                     showToast(res.error || 'Could not save variable', 'error');
@@ -442,11 +490,45 @@ function buildNewVarRow(envId, $tbody) {
     $valInput.on('blur', trySaveNewRow)
              .on('keydown', function (e) { if (e.key === 'Enter') $(this).blur(); });
 
+    // Eye button (hidden until marked secret)
+    const $eyeBtn = $('<button>')
+        .addClass('btn-var-eye')
+        .attr('title', 'Show / hide value')
+        .html('<i class="bi bi-eye"></i>')
+        .hide()
+        .on('click', function () {
+            _revealed = !_revealed;
+            $valInput.attr('type', _revealed ? 'text' : 'password');
+            $(this).find('i')
+                .toggleClass('bi-eye', !_revealed)
+                .toggleClass('bi-eye-slash', _revealed);
+        });
+
+    // Lock button — toggle secret state before the row is saved
+    const $lockBtn = $('<button>')
+        .addClass('btn-var-secret')
+        .attr('title', 'Mark as secret')
+        .html('<i class="bi bi-lock"></i>')
+        .on('click', function () {
+            _isSecret = !_isSecret;
+            _revealed  = false;
+            $valInput.attr('type', _isSecret ? 'password' : 'text');
+            $eyeBtn.toggle(_isSecret);
+            $lockBtn
+                .toggleClass('is-secret', _isSecret)
+                .attr('title', _isSecret ? 'Unmark as secret' : 'Mark as secret')
+                .find('i')
+                .toggleClass('bi-lock-fill', _isSecret)
+                .toggleClass('bi-lock', !_isSecret);
+        });
+
     const $delBtn = $('<button>').addClass('btn-kv-delete')
         .html('<i class="bi bi-x"></i>')
         .on('click', function () { $row.remove(); });
 
-    $row.append($('<td>').append($keyInput), $('<td>').append($valInput), $('<td>').append($delBtn));
+    const $valWrap = $('<div>').addClass('var-val-wrap').append($valInput, $eyeBtn);
+    const $actions = $('<div>').addClass('var-actions').append($lockBtn, $delBtn);
+    $row.append($('<td>').append($keyInput), $('<td>').append($valWrap), $('<td>').append($actions));
     return $row;
 }
 

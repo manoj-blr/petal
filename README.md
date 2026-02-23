@@ -1,10 +1,10 @@
-# Petal — HTTP Client for People Who Don't Want Cloud Drama
+# Petal - HTTP Client for People Who Don't Want Cloud Drama
 
 I got tired of Postman and Insomnia.
 
-Not because they're bad tools — they're genuinely good. But at some point they both decided that I couldn't just *use* them. I had to create an account first. Log in. Agree to sync my requests, headers, API keys, and environment variables to someone else's cloud. And then pay once the free tier started getting stingy.
+Not because they're bad tools - they're genuinely good. But at some point they both decided that I couldn't just *use* them. I had to create an account first. Log in. Agree to sync my requests, headers, API keys, and environment variables to someone else's cloud. And then pay once the free tier got stingy.
 
-The second issue was worse: my laptop started slowing to a crawl. These tools — once lean and fast — had become Electron monsters that would happily eat 500 MB of RAM and spike my CPU while I was just trying to fire a GET request. My fans would spin up just opening the app.
+The second issue was worse: my laptop started slowing to a crawl. These tools - once lean and fast - had become Electron monsters that eat 500 MB of RAM and spike your CPU while you're just trying to fire a GET request. My fans would spin up just opening the app.
 
 So I built Petal. It runs on the local PHP + MySQL stack I already had. It opens in a browser tab. It stores everything in a local database. Nothing leaves your machine. No login. No sync. No cloud. No drama.
 
@@ -12,35 +12,27 @@ It won't replace Postman for a team of 20. It's not trying to. It's for one deve
 
 ---
 
-## What it looks like
-
-> _Screenshot coming soon — clone it and see for yourself. Takes about 5 minutes to set up._
-
----
-
 ## What you need
 
 - PHP 8.x
 - MySQL 8.x
-- Apache or Nginx (whichever you already have running locally)
+- Apache or Nginx (whichever you already have running)
 
-That's it. No npm. No Composer. No build step. Everything frontend loads from CDN.
+No npm. No Composer. No build step. Everything frontend loads from CDN.
 
 ---
 
 ## Setup
 
-**1. Put the files somewhere your web server can see them**
+**1. Clone it somewhere your web server can see**
 
 ```bash
-git clone https://github.com/yourname/petal /var/www/html/petal
+git clone https://github.com/manoj-blr/petal.git /var/www/html/petal
 ```
-
-Or just copy the folder. Doesn't matter.
 
 **2. Point your web server at the `public/` folder**
 
-**Apache** — add this to your virtual host or `apache2.conf`:
+Apache - add this to your virtual host or `apache2.conf`:
 ```apache
 Alias /petal /var/www/html/petal/public
 <Directory /var/www/html/petal/public>
@@ -50,7 +42,7 @@ Alias /petal /var/www/html/petal/public
 ```
 Then open `http://localhost/petal`.
 
-**Nginx** — point `root` at `public/`:
+Nginx:
 ```nginx
 server {
     listen 80;
@@ -65,7 +57,7 @@ server {
     }
 }
 ```
-Add `127.0.0.1 petal.local` to `/etc/hosts`, then open `http://petal.local`.
+Add `127.0.0.1 petal.local` to `/etc/hosts`, open `http://petal.local`.
 
 **3. Create the database**
 
@@ -73,15 +65,15 @@ Add `127.0.0.1 petal.local` to `/etc/hosts`, then open `http://petal.local`.
 mysql -u root -p < sql/schema.sql
 ```
 
-This creates the `petal` database, all tables, and seeds a default "Local" environment with `base_url = http://localhost` ready to use.
+Creates the `petal` database, all the tables, and seeds a default "Local" environment with `base_url = http://localhost` ready to go.
 
-**4. Set your database credentials**
+**4. Set your credentials**
 
 ```bash
 cp config/.env.php.example config/.env.php
 ```
 
-Open `config/.env.php` and fill in your MySQL username and password. This file is gitignored — it never leaves your machine.
+Open `config/.env.php`, fill in your MySQL username and password. This file is gitignored - it stays on your machine.
 
 **5. Open it**
 
@@ -89,118 +81,61 @@ Open `config/.env.php` and fill in your MySQL username and password. This file i
 http://localhost/petal
 ```
 
-You should see the app. The "Local" environment is already active. Start typing a URL and hit `Ctrl+Enter`.
+The "Local" environment is already active. Start typing a URL and hit `Ctrl+Enter`.
 
 ---
 
-## How to use it
+## How it works
 
-### The basics
+### Sending a request
 
-Type a URL, pick a method, hit **Send** (or `Ctrl+Enter`). The response shows up below — status code, timing, size, headers, and a syntax-highlighted body if it's JSON.
+Type a URL, pick a method, hit **Send** (or `Ctrl+Enter`). Response shows up below - status, timing, size, headers, and syntax-highlighted JSON if the body is JSON. HTML responses open in a sandboxed iframe so Laravel `dd()` and debug pages render properly instead of showing raw markup.
 
 ### Environments and variables
 
-The dropdown in the top bar switches environments. Click **Manage environments** to create variables. Use `{{variable_name}}` anywhere in your URL, headers, or body — Petal substitutes them before sending.
+The dropdown in the top bar switches environments. Click **Manage environments** to add variables. Use `{{variable_name}}` anywhere in your URL, headers, or body and Petal substitutes them before sending:
 
 ```
 https://{{base_url}}/api/users/{{user_id}}
 ```
 
-If a variable isn't found in the active environment, it's left as-is and flagged in the response Info tab so you know what broke.
-
-You can paste an entire `.env` file into the environment variable panel (click **Import .env**) instead of adding variables one by one.
+If a variable isn't defined in the active environment, it gets left as-is and flagged in the response Info tab so you can see exactly what broke. You can also paste an entire `.env` file directly into the variable panel - click **Import .env** instead of typing them in one by one.
 
 ### Auth
 
-The **Auth** tab handles the common cases without you having to manually construct headers:
-
-- **Bearer token** — paste your token; `Authorization: Bearer ...` is built automatically. Use `{{token}}` if it's in your environment.
-- **Basic auth** — username + password; base64-encoded for you.
-- **API Key** — header name and value; you decide where it goes.
+The **Auth** tab handles the common cases: Bearer token, Basic auth, and API Key. It builds the headers for you so you're not manually constructing `Authorization: Bearer ...` every time. Variables work here too - `{{token}}` is fine.
 
 ### Saving requests
 
-`Ctrl+S` to save. Give it a name, optionally assign it to a collection. Saved requests show up in the sidebar. Right-click (or use the `...` menu on hover) to rename, duplicate, move between collections, or delete.
-
-`Ctrl+K` opens the command palette — start typing to jump to any saved request instantly.
+`Ctrl+S` to save. Give it a name, optionally drop it in a collection. Saved requests appear in the sidebar. Right-click to rename, duplicate, move, or delete. `Ctrl+K` opens a command palette - type to jump to any saved request without touching the sidebar.
 
 ### cURL
 
-Two buttons in the request name bar:
-
-- **Copy as cURL** (`⊞` icon) — generates the equivalent `curl` command for the current request and copies it to clipboard. Useful for sharing with teammates or dropping into a terminal.
-- **Import from cURL** — paste a `curl` command from your terminal, browser DevTools (*right-click a network request → Copy as cURL*), or API docs. Petal parses the method, URL, headers, body, and SSL flag automatically.
+Two buttons in the request bar. **Copy as cURL** takes whatever's in the workspace and gives you the equivalent `curl` command - useful when you want to share it or paste it in a terminal. **Import from cURL** does the reverse - paste a `curl` command from your terminal, DevTools, or API docs, and Petal fills in the method, URL, headers, and body automatically.
 
 ### History
 
-Every request you send is logged. The sidebar shows the last 50, grouped by date. Click any history entry to reload it into the workspace. `Ctrl+H` scrolls to the history section.
+Every request you send gets logged. Last 50, grouped by date, in the sidebar. Click any entry to restore the full request - method, URL, headers, body, everything. `Ctrl+H` scrolls to it.
 
 ---
 
-## Features
+## Keyboard shortcuts
 
-**Sending requests**
-- GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS
-- Query params tab — edit as key-value pairs, URL updates live
-- Headers tab — key-value editor, two default headers pre-filled and enabled (`Accept` and `Content-Type: application/json`)
-- Body tab — JSON, Form (URL-encoded), or Raw; Format button for JSON; invalid JSON is caught before sending
-- Auth tab — Bearer token, Basic auth, API Key
-- Per-request SSL verification toggle (shield icon) — for self-signed certs in local dev
-- Per-request timeout (default 30s, range 1–300s)
-
-**Response panel**
-- Status badge colour-coded by range (2xx green, 3xx yellow, 4xx orange, 5xx red)
-- Duration (ms) and size (KB/MB)
-- Syntax-highlighted JSON — written from scratch, no library
-- HTML preview tab — auto-shown for `text/html` responses; uses `srcdoc` iframe so Laravel `dd()` and similar interactive debug pages work
-- Response body search — `$.path.to.key` for JSON navigation, text search with match highlighting
-- Copy raw body to clipboard; word-wrap toggle
-- Response size limit — bodies over 5 MB are truncated with a warning to prevent browser lockup
-- Split view (`Ctrl+\`) — side-by-side request and response panels
-
-**Environments**
-- Multiple environments, one active at a time
-- `{{variable}}` substitution in URL, headers, and body
-- Duplicate an environment with all its variables in one click
-- Bulk import from a `.env` file
-
-**Collections and saved requests**
-- Organise requests into collections
-- Duplicate, rename, move between collections, delete via right-click menu
-- Request notes — a free-text Notes tab for documenting endpoints, expected params, gotchas
-- `Ctrl+K` command palette — fuzzy search across all saved requests
-
-**History**
-- Last 50 requests, grouped by "Today / Yesterday / date"
-- Click to reload any past request (method, URL, headers, body all restored)
-
-**cURL**
-- Copy any request as a `curl` command
-- Import from `curl` — shell-aware parser handles quoted args, escaped characters, line continuations
-
-**Settings (persisted across sessions)**
-- Light / dark theme toggle
-- Split / stacked response layout
-- Sidebar visible / hidden
-
-**Keyboard shortcuts**
-
-| Shortcut       | Action                                  |
+| Shortcut       | What it does                            |
 |----------------|-----------------------------------------|
 | `Ctrl+Enter`   | Send request                            |
 | `Ctrl+S`       | Save current request                    |
 | `Alt+N`        | New request                             |
-| `Ctrl+K`       | Command palette (jump to saved request) |
+| `Ctrl+K`       | Command palette                         |
 | `Ctrl+E`       | Focus environment switcher              |
 | `Ctrl+/`       | Toggle sidebar                          |
 | `Ctrl+H`       | Scroll to history                       |
 | `Ctrl+\`       | Toggle split / stacked layout           |
 | `Ctrl+L`       | Focus + select URL bar                  |
-| `Alt+M`        | Focus method selector (arrow keys cycle)|
-| `Alt+1–5`      | Switch request tab (Params/Headers/Body/Auth/Notes) |
-| `Alt+6–7`      | Switch response tab (Body/Headers)      |
-| `?`            | Open keyboard shortcut cheatsheet       |
+| `Alt+M`        | Focus method selector                   |
+| `Alt+1–5`      | Switch request tab                      |
+| `Alt+6–7`      | Switch response tab                     |
+| `?`            | Keyboard shortcut cheatsheet            |
 | `Esc`          | Close modal / menu                      |
 
 ---
@@ -209,73 +144,59 @@ Every request you send is logged. The sidebar shows the last 50, grouped by date
 
 ```
 petal/
-├── public/                   ← Web root — point your server here
-│   ├── index.php             ← Single-page app shell (all HTML lives here)
+├── public/                   ← Web root
+│   ├── index.php             ← App shell
 │   └── assets/
 │       ├── css/
-│       │   ├── theme.css     ← CSS custom properties (colours, fonts, radii)
-│       │   └── app.css       ← Layout + component styles (no hardcoded colours)
+│       │   ├── theme.css     ← CSS custom properties
+│       │   └── app.css       ← Layout and components
 │       └── js/
-│           ├── app.js           ← Init, showToast(), sidebar toggle
-│           ├── shortcuts.js     ← Central keyboard shortcut registry
-│           ├── settings.js      ← Theme, layout — localStorage + DB dual-write
-│           ├── environments.js  ← Environment switcher + variable editor
-│           ├── collections.js   ← Sidebar tree, CRUD, context menu
-│           ├── palette.js       ← Ctrl+K command palette
-│           ├── autocomplete.js  ← URL bar autocomplete (saved requests + history)
-│           ├── history.js       ← History panel
-│           ├── request.js       ← URL bar, send/cancel, new/load request, params tab
-│           ├── save.js          ← Save + update request flow
-│           ├── headers.js       ← Headers tab editor
-│           ├── body.js          ← Body tab (JSON / Form / Raw)
-│           ├── auth.js          ← Auth tab (Bearer / Basic / API Key)
-│           ├── curl.js          ← cURL generator + importer
-│           └── response.js      ← Response rendering + JSON syntax highlighter
+│           ├── app.js
+│           ├── shortcuts.js
+│           ├── settings.js
+│           ├── environments.js
+│           ├── collections.js
+│           ├── palette.js
+│           ├── autocomplete.js
+│           ├── history.js
+│           ├── request.js
+│           ├── save.js
+│           ├── headers.js
+│           ├── body.js
+│           ├── auth.js
+│           ├── curl.js
+│           └── response.js
 │
-├── api/                      ← PHP endpoints (AJAX only, return JSON)
-│   ├── send_request.php      ← cURL engine, variable substitution, history logging
-│   ├── environments.php      ← CRUD for environments
-│   ├── variables.php         ← CRUD for environment variables
-│   ├── collections.php       ← CRUD for collections
-│   ├── requests.php          ← CRUD for saved requests
-│   ├── history.php           ← Read / clear request history
-│   └── settings.php          ← Read / write user settings (theme, layout)
+├── api/                      ← PHP endpoints, return JSON
+│   ├── send_request.php
+│   ├── environments.php
+│   ├── variables.php
+│   ├── collections.php
+│   ├── requests.php
+│   ├── history.php
+│   └── settings.php
 │
 ├── config/
-│   ├── database.php          ← PDO connection helper (getDb())
+│   ├── database.php
 │   ├── .env.php              ← Your credentials (gitignored)
-│   └── .env.php.example      ← Copy this and fill it in
+│   └── .env.php.example
 │
 └── sql/
-    └── schema.sql            ← Full schema + seed data — run once to set up
+    └── schema.sql
 ```
 
 ---
 
-## Philosophy
+## The stack
 
-Every file in this codebase should be easy to read, modify, and delete. No framework magic. No abstractions for the sake of it. If something can be simpler, it should be simpler.
+Plain PHP 8, MySQL 8, Bootstrap 5 + jQuery 3 from CDN. No framework. No build pipeline. Boring on purpose - boring technology doesn't surprise you at 11pm when something breaks.
 
-The frontend is plain jQuery + Bootstrap loaded from CDN. The backend is plain PHP 8. The database is MySQL. These are boring choices. That's the point — boring technology stays out of your way.
-
-If you want to add a feature, you can find where it belongs in about 30 seconds and write it in vanilla JS or PHP without reading a framework guide first.
+Every file should take under a minute to find and under five to understand. If you want to add something, you shouldn't need to read a framework guide to figure out where it goes.
 
 ---
 
-## What it doesn't do (yet)
+## What's missing
 
-- No team sharing or cloud sync — intentionally. Use Git to share a request collection export.
-- No WebSocket or GraphQL mode — plain HTTP only for now.
-- No test runner or response assertions — coming at some point.
-- No Postman collection import — on the list.
+No team sharing - use Git to export and share a collection if you need to. No WebSocket or GraphQL support, plain HTTP only. No response assertions or test runner yet. Postman collection import is on the list but not done.
 
----
-
-## Tech stack
-
-| Layer    | Choice                                          |
-|----------|-------------------------------------------------|
-| Backend  | Plain PHP 8.x — no framework                   |
-| Database | MySQL 8.x                                       |
-| Frontend | Bootstrap 5 + jQuery 3 + Bootstrap Icons (CDN) |
-| Server   | Apache or Nginx — whatever you already have     |
+If any of that's a dealbreaker, Postman exists and is good. This is for the case where Postman is too much.
